@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Entity Validations ---
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['authorId', 'authorName', 'authorAvatar', 'content', 'platform', 'createdAt', 'likesCount', 'commentsCount', 'sharesCount', 'retweetsCount', 'reactions', 'isVerified']) &&
+             data.authorId == request.auth.uid &&
+             data.authorName is string &&
+             data.authorAvatar is string &&
+             data.content is string &&
+             data.createdAt == request.time &&
+             data.likesCount is number &&
+             data.commentsCount is number &&
+             data.sharesCount is number &&
+             data.retweetsCount is number &&
+             data.reactions is map &&
+             data.isVerified is bool &&
+             (data.get('imageUrl', null) == null || data.imageUrl == null || data.imageUrl is string);
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['postId', 'authorId', 'content', 'createdAt']) &&
+             data.authorId == request.auth.uid &&
+             data.content is string &&
+             data.createdAt == request.time;
+    }
+
+    function isValidReaction(data) {
+      return data.keys().hasAll(['postId', 'userId', 'type', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasAll(['userId']) &&
+             data.userId == request.auth.uid;
+    }
+
+    // --- Collections ---
+
+    // 1. Posts
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && isValidPost(incoming());
+
+      allow update: if isSignedIn() && (
+        // Action: Edit (Owner only)
+        (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'imageUrl', 'platform', 'updatedAt', 'createdAt', 'likesCount', 'commentsCount', 'sharesCount', 'retweetsCount', 'reactions'])) ||
+        // Action: Like (Anyone)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['likesCount']) && incoming().likesCount == existing().likesCount + 1)
+      );
+
+      allow delete: if isSignedIn();
+      
+      // Comments (Subcollection)
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && 
+                      incoming().authorId == request.auth.uid &&
+                      exists(/databases/$(database)/documents/posts/$(postId));
+        allow delete: if isSignedIn();
+      }
+    }
+
+    // 2. Profiles
+    match /profiles/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      
+      allow create: if isSignedIn() && isOwner(userId) && isValidProfile(incoming());
+      allow update: if isSignedIn() && isOwner(userId) && 
+                      isValidProfile(incoming()) &&
+                      incoming().userId == existing().userId &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bio', 'avatarUrl', 'professionalType', 'platform', 'stats']);
+    }
+
+    // 3. Messenger (Chats)
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn() && isValidId(chatId) && request.auth.uid in incoming().participants;
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isSignedIn() && isValidId(messageId) && 
+                      request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants &&
+                      incoming().senderId == request.auth.uid &&
+                      incoming().createdAt == request.time &&
+                      incoming().content is string && incoming().content.size() <= 2000;
+      }
+    }
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A fake social media post",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string", "description": "The UID of the user who created the post" },
+        "authorName": { "type": "string", "description": "Display name of the author" },
+        "authorAvatar": { "type": "string", "description": "Avatar URL of the author" },
+        "content": { "type": "string", "description": "Post text content" },
+        "imageUrl": { "type": "string", "description": "Optional image URL" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update" },
+        "likesCount": { "type": "number", "description": "Number of likes" },
+        "reactions": { "type": "object", "description": "Map of reaction types to counts (love, haha, etc)" },
+        "platform": { "type": "string", "enum": ["x", "facebook", "instagram", "tiktok", "youtube", "snapchat", "telegram"], "description": "The social media platform branding" },
+        "isVerified": { "type": "boolean", "description": "Whether the author profile is fake-verified" }
+      },
+      "required": ["authorId", "content", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "description": "The ID of the parent post" },
+        "authorId": { "type": "string", "description": "The UID of the comment author" },
+        "authorName": { "type": "string", "description": "Display name of the author" },
+        "content": { "type": "string", "description": "Comment text" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["postId", "authorId", "content", "createdAt"]
+    },
+    "Reaction": {
+      "title": "Reaction",
+      "description": "A reaction (like, love, etc) on a post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "description": "Target post ID" },
+        "userId": { "type": "string", "description": "User who reacted" },
+        "type": { "type": "string", "enum": ["like", "love", "haha", "wow", "sad", "angry"], "description": "Reaction type" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "type", "createdAt"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "A fake messenger chat session",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" }, "description": "UIDs of participants" },
+        "participantData": { "type": "object", "description": "Metadata (name, avatar, isVerified) for participants" },
+        "platform": { "type": "string", "enum": ["x", "facebook", "instagram", "tiktok", "youtube", "snapchat", "telegram", "whatsapp"], "description": "Chat platform skin" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants", "lastMessageAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message within a chat",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "content", "createdAt"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "User's fake social profile & dashboard data",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "bio": { "type": "string" },
+        "followersCount": { "type": "number" },
+        "followingCount": { "type": "number" },
+        "isVerified": { "type": "boolean" },
+        "professionalType": { "type": "string", "description": "e.g., 'Digital Creator', 'Public Figure'" },
+        "platform": { "type": "string", "description": "Default platform template for dashboard" },
+        "stats": { "type": "object", "description": "Fake dashboard analytics" }
+      },
+      "required": ["userId"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": { "schema": "Post", "description": "Social media posts" },
+    "/posts/{postId}/comments/{commentId}": { "schema": "Comment", "description": "Comments on a post" },
+    "/posts/{postId}/reactions/{reactionId}": { "schema": "Reaction", "description": "Reactions to a post" },
+    "/chats/{chatId}": { "schema": "Chat", "description": "Messenger chats" },
+    "/chats/{chatId}/messages/{messageId}": { "schema": "Message", "description": "Messages in a chat" },
+    "/profiles/{userId}": { "schema": "Profile", "description": "User social profiles" }
+  }
+}
